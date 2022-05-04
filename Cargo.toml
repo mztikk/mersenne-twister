@@ -1,5 +1,5 @@
 [package]
-name = "mersenne-twister"
+name = "mersenne-twister-m"
 version = "0.1.0"
 edition = "2021"
 authors = ["Nils Feierabend <mztikk@outlook.de>"]
