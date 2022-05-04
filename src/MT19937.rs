@@ -7,6 +7,7 @@ const MATRIX_A: u32 = 0x9908b0df;
 const UPPER_MASK: u32 = 0x80000000;
 const LOWER_MASK: u32 = 0x7fffffff;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MT19937 {
     state: [u32; N],
     index: usize,
@@ -55,7 +56,8 @@ impl MT19937 {
         self.index = 0;
     }
 
-    fn temper(&self, y: u32) -> u32 {
+    #[inline]
+    const fn temper(&self, y: u32) -> u32 {
         let mut y = y;
         y ^= y >> 11;
         y ^= (y << 7) & 0x9d2c5680;
