@@ -82,6 +82,18 @@ fn twist(state: &mut [u32; 624]) {
 const LOOKAHEAD_SIZE: usize = 10;
 const MAX_LOOKAHEAD_SIZE: usize = N * LOOKAHEAD_SIZE;
 
+pub struct MTState {
+    pub mti: usize,
+    pub mt: u32,
+    pub value: u32,
+}
+
+impl MTState {
+    pub const fn new(mti: usize, mt: u32, value: u32) -> Self {
+        MTState { mti, mt, value }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MT19937 {
     states: [[u32; N]; LOOKAHEAD_SIZE],
@@ -156,6 +168,20 @@ impl MT19937 {
     }
 
     pub const fn peek_specific(&self, state_index: usize, index: usize) -> Option<u32> {
+        match self.peek_specific_state(state_index, index) {
+            Some(state) => Some(state.value),
+            None => None,
+        }
+    }
+
+    pub const fn peek(&self, offset: usize) -> Option<u32> {
+        match self.peek_state(offset) {
+            Some(state) => Some(state.value),
+            None => None,
+        }
+    }
+
+    pub const fn peek_specific_state(&self, state_index: usize, index: usize) -> Option<MTState> {
         if state_index > self.get_max_lookahead_index() {
             return None;
         }
@@ -164,17 +190,18 @@ impl MT19937 {
             return None;
         }
 
-        let y = self.states[state_index][index];
+        let mt = self.states[state_index][index];
+        let value = temper(mt);
 
-        Some(temper(y))
+        Some(MTState::new(index, mt, value))
     }
 
-    pub const fn peek(&self, offset: usize) -> Option<u32> {
+    pub const fn peek_state(&self, offset: usize) -> Option<MTState> {
         let offset_index = self.index + offset;
         let state_index = offset_index / N;
         let index = offset_index % N;
 
-        self.peek_specific(state_index, index)
+        self.peek_specific_state(state_index, index)
     }
 }
 
