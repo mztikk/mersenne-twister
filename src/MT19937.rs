@@ -131,11 +131,11 @@ impl MT19937 {
 
     pub fn load_state(&mut self, state: &[u32; 624], index: usize) {
         self.states[0] = *state;
-        self.built_states_based_on_first();
+        self.build_states_based_on_first();
         self.index = index;
     }
 
-    fn built_states_based_on_first(&mut self) {
+    fn build_states_based_on_first(&mut self) {
         for i in 1..LOOKAHEAD_SIZE {
             let previous_state = &self.states[i - 1];
             self.states[i] = *previous_state;
@@ -146,7 +146,7 @@ impl MT19937 {
 
     fn init_states(&mut self) {
         twist(&mut self.states[0]);
-        self.built_states_based_on_first();
+        self.build_states_based_on_first();
 
         self.index = 0;
     }
