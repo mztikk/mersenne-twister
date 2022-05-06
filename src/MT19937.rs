@@ -79,9 +79,12 @@ fn twist(state: &mut [u32; 624]) {
     }
 }
 
+const LOOKAHEAD_SIZE: usize = 10;
+const MAX_LOOKAHEAD_SIZE: usize = N * LOOKAHEAD_SIZE;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MT19937 {
-    state: [u32; N],
+    states: [[u32; N]; LOOKAHEAD_SIZE],
     index: usize,
 }
 
@@ -92,22 +95,24 @@ impl MT19937 {
 
     pub fn new_with_seed(seed: u32) -> Self {
         let mut mt = MT19937 {
-            state: [0; 624],
+            states: [[0; N]; LOOKAHEAD_SIZE],
             index: 0,
         };
         mt.sgenrand(seed);
+        mt.init_states();
         mt
     }
 
     pub fn sgenrand(&mut self, seed: u32) {
-        self.state[0] = seed;
+        let state = &mut self.states[0];
+        state[0] = seed;
 
         self.index = 1;
         while self.index < N {
-            self.state[self.index] = 1812433253_u32
-                .wrapping_mul(self.state[self.index - 1] ^ (self.state[self.index - 1] >> 30))
+            state[self.index] = 1812433253_u32
+                .wrapping_mul(state[self.index - 1] ^ (state[self.index - 1] >> 30))
                 + self.index as u32;
-            self.state[self.index] &= 0xffffffff;
+            state[self.index] &= 0xffffffff;
 
             self.index += 1;
         }
@@ -115,20 +120,61 @@ impl MT19937 {
 
     pub fn genrand(&mut self) -> u32 {
         if self.index >= N {
-            twist(&mut self.state);
-
-            self.index = 0;
+            self.init_states();
         }
 
-        let y = self.state[self.index];
+        let y = self.states[0][self.index];
         self.index += 1;
 
         temper(y)
     }
 
     pub fn load_state(&mut self, state: &[u32; 624], index: usize) {
-        self.state = *state;
+        self.states[0] = *state;
+        self.built_states_based_on_first();
         self.index = index;
+    }
+
+    fn built_states_based_on_first(&mut self) {
+        for i in 1..LOOKAHEAD_SIZE {
+            let previous_state = &self.states[i - 1];
+            self.states[i] = *previous_state;
+            let state = &mut self.states[i];
+            twist(state);
+        }
+    }
+
+    fn init_states(&mut self) {
+        twist(&mut self.states[0]);
+        self.built_states_based_on_first();
+
+        self.index = 0;
+    }
+
+    fn get_max_lookahead_index(&self) -> usize {
+        MAX_LOOKAHEAD_SIZE - self.index - 1
+    }
+
+    pub fn peek_specific(&self, state_index: usize, index: usize) -> Option<u32> {
+        if state_index > self.get_max_lookahead_index() {
+            return None;
+        }
+
+        if index >= N {
+            return None;
+        }
+
+        let y = self.states[state_index][index];
+
+        Some(temper(y))
+    }
+
+    pub fn peek(&self, offset: usize) -> Option<u32> {
+        let offset_index = self.index + offset;
+        let state_index = offset_index / N;
+        let index = offset_index % N;
+
+        self.peek_specific(state_index, index)
     }
 }
 
@@ -140,6 +186,8 @@ impl Default for MT19937 {
 
 #[cfg(test)]
 mod tests {
+    use crate::MT19937::{MAX_LOOKAHEAD_SIZE, N};
+
     #[test]
     fn test_default() {
         let mut mt = super::MT19937::default();
@@ -171,5 +219,56 @@ mod tests {
         assert_eq!(mt.genrand(), 74803024);
         assert_eq!(mt.genrand(), 3048110697);
         assert_eq!(mt.genrand(), 1213569425);
+    }
+
+    #[test]
+    fn test_default_peek() {
+        let mt = super::MT19937::default();
+
+        assert_eq!(mt.peek(0), Some(3499211612));
+        assert_eq!(mt.peek(1), Some(581869302));
+        assert_eq!(mt.peek(2), Some(3890346734));
+        assert_eq!(mt.peek(3), Some(3586334585));
+        assert_eq!(mt.peek(4), Some(545404204));
+    }
+
+    #[test]
+    fn test_ps2_peek_next_state() {
+        let mt = super::MT19937::new_with_seed(super::DEFAULT_SEED_PS2);
+
+        assert_eq!(mt.peek(624), Some(2370195708));
+        assert_eq!(mt.peek(624 + 1), Some(1272340656));
+        assert_eq!(mt.peek(624 + 2), Some(2451137865));
+        assert_eq!(mt.peek(624 + 3), Some(1725072322));
+        assert_eq!(mt.peek(624 + 4), Some(781178099));
+    }
+
+    #[test]
+    fn test_ps2_peek_specific_state() {
+        let mt = super::MT19937::new_with_seed(super::DEFAULT_SEED_PS2);
+
+        assert_eq!(mt.peek_specific(1, 0), Some(2370195708));
+        assert_eq!(mt.peek_specific(1, 1), Some(1272340656));
+        assert_eq!(mt.peek_specific(1, 2), Some(2451137865));
+        assert_eq!(mt.peek_specific(1, 3), Some(1725072322));
+        assert_eq!(mt.peek_specific(1, 4), Some(781178099));
+
+        assert_eq!(mt.peek_specific(2, 0), Some(3776761649));
+        assert_eq!(mt.peek_specific(2, 1), Some(4155410904));
+        assert_eq!(mt.peek_specific(2, 2), Some(1258679099));
+        assert_eq!(mt.peek_specific(2, 3), Some(2085559062));
+        assert_eq!(mt.peek_specific(2, 4), Some(2548599404));
+    }
+
+    #[test]
+    fn test_non_existent_peek() {
+        let mt = super::MT19937::default();
+
+        assert_eq!(mt.peek_specific(MAX_LOOKAHEAD_SIZE + 1, N + 1), None);
+        assert_eq!(mt.peek_specific(MAX_LOOKAHEAD_SIZE + 1, N), None);
+        assert_eq!(mt.peek_specific(MAX_LOOKAHEAD_SIZE + 1, N - 1), None);
+        assert_eq!(mt.peek_specific(MAX_LOOKAHEAD_SIZE, N), None);
+        assert_eq!(mt.peek_specific(MAX_LOOKAHEAD_SIZE - 1, N), None);
+        assert_eq!(mt.peek(N * MAX_LOOKAHEAD_SIZE), None);
     }
 }
