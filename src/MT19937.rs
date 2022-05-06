@@ -151,11 +151,11 @@ impl MT19937 {
         self.index = 0;
     }
 
-    fn get_max_lookahead_index(&self) -> usize {
+    const fn get_max_lookahead_index(&self) -> usize {
         MAX_LOOKAHEAD_SIZE - self.index - 1
     }
 
-    pub fn peek_specific(&self, state_index: usize, index: usize) -> Option<u32> {
+    pub const fn peek_specific(&self, state_index: usize, index: usize) -> Option<u32> {
         if state_index > self.get_max_lookahead_index() {
             return None;
         }
@@ -169,7 +169,7 @@ impl MT19937 {
         Some(temper(y))
     }
 
-    pub fn peek(&self, offset: usize) -> Option<u32> {
+    pub const fn peek(&self, offset: usize) -> Option<u32> {
         let offset_index = self.index + offset;
         let state_index = offset_index / N;
         let index = offset_index % N;
