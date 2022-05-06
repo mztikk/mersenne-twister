@@ -1,5 +1,5 @@
 # mersenne-twister
-Mersenne Twister(MT19937) implementation in Rust
+Mersenne Twister(MT19937) implementation in Rust. Found on crates as [mersenne-twister-m](https://crates.io/crates/mersenne-twister-m)
 
 ## Examples
 Create MT19937 instance with either default seed
