@@ -48,10 +48,36 @@ pub const DEFAULT_SEED: u32 = 5489;
 pub const DEFAULT_SEED_PS2: u32 = 4537;
 
 const N: usize = 624;
+const M: usize = 397;
 
 const MATRIX_A: u32 = 0x9908b0df;
 const UPPER_MASK: u32 = 0x80000000;
 const LOWER_MASK: u32 = 0x7fffffff;
+
+#[inline]
+const fn temper(y: u32) -> u32 {
+    let mut y = y;
+    y ^= y >> 11;
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= y >> 18;
+
+    y
+}
+
+#[inline]
+fn twist(state: &mut [u32; 624]) {
+    for i in 0..N {
+        let x = (state[i] & UPPER_MASK) + (state[(i + 1) % N] & LOWER_MASK);
+        let mut x_a = x >> 1;
+
+        if x % 2 != 0 {
+            x_a ^= MATRIX_A;
+        }
+
+        state[i] = state[(i + M) % N] ^ x_a;
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MT19937 {
@@ -87,41 +113,22 @@ impl MT19937 {
         }
     }
 
-    fn twist(&mut self) {
-        for i in 0..N {
-            let x = (self.state[i] & UPPER_MASK) + (self.state[(i + 1) % N] & LOWER_MASK);
-            let mut x_a = x >> 1;
-
-            if x % 2 != 0 {
-                x_a ^= MATRIX_A;
-            }
-
-            self.state[i] = self.state[(i + 397) % N] ^ x_a;
-        }
-
-        self.index = 0;
-    }
-
-    #[inline]
-    const fn temper(&self, y: u32) -> u32 {
-        let mut y = y;
-        y ^= y >> 11;
-        y ^= (y << 7) & 0x9d2c5680;
-        y ^= (y << 15) & 0xefc60000;
-        y ^= y >> 18;
-
-        y
-    }
-
     pub fn genrand(&mut self) -> u32 {
         if self.index >= N {
-            self.twist();
+            twist(&mut self.state);
+
+            self.index = 0;
         }
 
         let y = self.state[self.index];
         self.index += 1;
 
-        self.temper(y)
+        temper(y)
+    }
+
+    pub fn load_state(&mut self, state: &[u32; 624], index: usize) {
+        self.state = *state;
+        self.index = index;
     }
 }
 
