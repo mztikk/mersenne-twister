@@ -44,6 +44,11 @@
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
 */
 
+use std::io::Cursor;
+
+use byteorder::{BigEndian, ReadBytesExt};
+use rand_core::{RngCore, SeedableRng};
+
 pub const DEFAULT_SEED: u32 = 5489;
 pub const DEFAULT_SEED_PS2: u32 = 4537;
 
@@ -241,6 +246,34 @@ impl MT19937 {
 impl Default for MT19937 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl SeedableRng for MT19937 {
+    type Seed = [u8; 4];
+
+    fn from_seed(seed: Self::Seed) -> Self {
+        let mut rdr = Cursor::new(seed);
+        MT19937::new_with_seed(rdr.read_u32::<BigEndian>().unwrap())
+    }
+}
+
+impl RngCore for MT19937 {
+    fn next_u32(&mut self) -> u32 {
+        self.genrand()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        rand_core::impls::next_u64_via_u32(self)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        rand_core::impls::fill_bytes_via_next(self, dest)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
     }
 }
 
