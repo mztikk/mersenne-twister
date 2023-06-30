@@ -253,7 +253,7 @@ impl SeedableRng for MT19937 {
     type Seed = [u8; 4];
 
     fn from_seed(seed: Self::Seed) -> Self {
-        MT19937::new_with_seed(u32::from_be_bytes(seed))
+        MT19937::new_with_seed(u32::from_le_bytes(seed))
     }
 }
 
@@ -799,5 +799,19 @@ mod tests {
         assert!(sync.is_none());
         let sync = mt.sync(&state_zeroes, N + 1);
         assert!(sync.is_none());
+    }
+
+    #[cfg(feature = "rand")]
+    #[test]
+    fn test_seed() {
+        use rand_core::SeedableRng;
+
+        const SEED: u32 = 55555;
+        let mut mt = super::MT19937::new_with_seed(SEED);
+        assert_eq!(mt.genrand(), 554499473);
+        assert_eq!(mt.genrand(), 460270059);
+        let mut mt = super::MT19937::from_seed(SEED.to_le_bytes());
+        assert_eq!(mt.genrand(), 554499473);
+        assert_eq!(mt.genrand(), 460270059);
     }
 }
