@@ -1,4 +1,10 @@
-pub mod MT19937;
+#![no_std]
+
+mod mt19937;
+pub use mt19937::MT19937;
+pub use mt19937::DEFAULT_SEED;
+pub use mt19937::DEFAULT_SEED_PS2;
+pub use mt19937::MTState;
 
 #[cfg(test)]
 mod tests {

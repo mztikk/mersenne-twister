@@ -44,9 +44,7 @@
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
 */
 
-use std::io::Cursor;
-
-use byteorder::{BigEndian, ReadBytesExt};
+#[cfg(feature = "rand")]
 use rand_core::{RngCore, SeedableRng};
 
 pub const DEFAULT_SEED: u32 = 5489;
@@ -100,7 +98,8 @@ impl MTState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MT19937 {
     states: [[u32; N]; LOOKAHEAD_SIZE],
     index: usize,
@@ -249,15 +248,16 @@ impl Default for MT19937 {
     }
 }
 
+#[cfg(feature = "rand")]
 impl SeedableRng for MT19937 {
     type Seed = [u8; 4];
 
     fn from_seed(seed: Self::Seed) -> Self {
-        let mut rdr = Cursor::new(seed);
-        MT19937::new_with_seed(rdr.read_u32::<BigEndian>().unwrap())
+        MT19937::new_with_seed(u32::from_be_bytes(seed))
     }
 }
 
+#[cfg(feature = "rand")]
 impl RngCore for MT19937 {
     fn next_u32(&mut self) -> u32 {
         self.genrand()
@@ -279,7 +279,7 @@ impl RngCore for MT19937 {
 
 #[cfg(test)]
 mod tests {
-    use crate::MT19937::{MAX_LOOKAHEAD_SIZE, N};
+    use crate::mt19937::{MAX_LOOKAHEAD_SIZE, N};
 
     #[test]
     fn test_default() {
