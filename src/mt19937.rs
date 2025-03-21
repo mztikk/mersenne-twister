@@ -287,17 +287,35 @@ impl SeedableRng for MT19937 {
 }
 
 #[cfg(feature = "rand")]
-impl RngCore for MT19937 {
-    fn next_u32(&mut self) -> u32 {
+impl MT19937 {
+    #[inline]
+    pub fn next_u32(&mut self) -> u32 {
         self.genrand()
     }
 
-    fn next_u64(&mut self) -> u64 {
+    #[inline]
+    pub fn next_u64(&mut self) -> u64 {
         rand_core::impls::next_u64_via_u32(self)
     }
 
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
+    #[inline]
+    pub fn fill_bytes(&mut self, dest: &mut [u8]) {
         rand_core::impls::fill_bytes_via_next(self, dest)
+    }
+}
+
+#[cfg(feature = "rand")]
+impl RngCore for MT19937 {
+    fn next_u32(&mut self) -> u32 {
+        self.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dst: &mut [u8]) {
+        self.fill_bytes(dst);
     }
 }
 
