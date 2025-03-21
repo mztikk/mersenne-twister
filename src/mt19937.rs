@@ -50,7 +50,19 @@ use rand_core::{RngCore, SeedableRng};
 pub const DEFAULT_SEED: u32 = 5489;
 pub const DEFAULT_SEED_PS2: u32 = 4537;
 
-const N: usize = 624;
+macro_rules! id {
+    ($limit:literal) => {
+        $limit
+    };
+}
+
+macro_rules! N {
+    ($($expand:ident)::*) => {
+        $($expand)::* !(624)
+    };
+}
+
+const N: usize = N!(id);
 const M: usize = 397;
 
 const MATRIX_A: u32 = 0x9908b0df;
@@ -68,21 +80,32 @@ const fn temper(y: u32) -> u32 {
     y
 }
 
-#[inline]
-fn twist(state: &mut [u32; 624]) {
-    for i in 0..N {
-        let x = (state[i] & UPPER_MASK) + (state[(i + 1) % N] & LOWER_MASK);
-        let mut x_a = x >> 1;
+const fn twist(state: &mut [u32; N]) {
+    macro_rules! expand {
+        ($limit:literal) => {
+            seq_macro::seq!(i in 0..$limit {
+                let x = (state[i] & UPPER_MASK) + (state[(i + 1) % N] & LOWER_MASK);
+                let mut x_a = x >> 1;
 
-        if x % 2 != 0 {
-            x_a ^= MATRIX_A;
+                if x % 2 != 0 {
+                    x_a ^= MATRIX_A;
+                }
+
+                state[i] = state[(i + M) % N] ^ x_a;
+            });
         }
-
-        state[i] = state[(i + M) % N] ^ x_a;
     }
+
+    N!(expand);
 }
 
-const LOOKAHEAD_SIZE: usize = 10;
+macro_rules! LOOKAHEAD_SIZE {
+    ($($expand:ident)::*) => {
+        $($expand)::* !(10)
+    };
+}
+
+const LOOKAHEAD_SIZE: usize = LOOKAHEAD_SIZE!(id);
 const MAX_LOOKAHEAD_SIZE: usize = N * LOOKAHEAD_SIZE;
 const MAX_SYNC_STATES: usize = 100;
 
@@ -106,11 +129,11 @@ pub struct MT19937 {
 }
 
 impl MT19937 {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         MT19937::new_with_seed(DEFAULT_SEED)
     }
 
-    pub fn new_with_seed(seed: u32) -> Self {
+    pub const fn new_with_seed(seed: u32) -> Self {
         let mut mt = MT19937 {
             states: [[0; N]; LOOKAHEAD_SIZE],
             index: 0,
@@ -120,7 +143,7 @@ impl MT19937 {
         mt
     }
 
-    pub fn sgenrand(&mut self, seed: u32) {
+    pub const fn sgenrand(&mut self, seed: u32) {
         let state = &mut self.states[0];
         state[0] = seed;
 
@@ -146,22 +169,28 @@ impl MT19937 {
         temper(y)
     }
 
-    pub fn load_state(&mut self, state: &[u32; 624], index: usize) {
+    pub fn load_state(&mut self, state: &[u32; N], index: usize) {
         self.states[0] = *state;
         self.build_lookahead_states();
         self.index = index;
     }
 
-    fn build_lookahead_states(&mut self) {
-        for i in 1..LOOKAHEAD_SIZE {
-            let previous_state = &self.states[i - 1];
-            self.states[i] = *previous_state;
-            let state = &mut self.states[i];
-            twist(state);
+    const fn build_lookahead_states(&mut self) {
+        macro_rules! expand {
+            ($limit:literal) => {
+                seq_macro::seq!(i in 1..$limit {
+                    let previous_state = &self.states[i - 1];
+                    self.states[i] = *previous_state;
+                    let state = &mut self.states[i];
+                    twist(state);
+                });
+            }
         }
+
+        LOOKAHEAD_SIZE!(expand);
     }
 
-    fn init_states(&mut self) {
+    const fn init_states(&mut self) {
         twist(&mut self.states[0]);
         self.build_lookahead_states();
 
@@ -209,7 +238,7 @@ impl MT19937 {
         self.peek_specific_state(state_index, index)
     }
 
-    pub fn sync(&mut self, state: &[u32; 624], index: usize) -> Option<usize> {
+    pub fn sync(&mut self, state: &[u32; N], index: usize) -> Option<usize> {
         if index >= N {
             return None;
         }
@@ -269,11 +298,6 @@ impl RngCore for MT19937 {
 
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         rand_core::impls::fill_bytes_via_next(self, dest)
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
-        self.fill_bytes(dest);
-        Ok(())
     }
 }
 
