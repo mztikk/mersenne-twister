@@ -1,6 +1,6 @@
 [package]
 name = "mersenne-twister-m"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Nils Feierabend <mztikk@outlook.de>"]
 repository = "https://github.com/mztikk/mersenne-twister"
